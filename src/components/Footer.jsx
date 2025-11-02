@@ -1,4 +1,4 @@
-import { FaHeart, FaGraduationCap } from 'react-icons/fa'
+import { FaHeart, FaGraduationCap, FaUser, FaEnvelope } from 'react-icons/fa'
 
 function Footer() {
   return (
@@ -18,9 +18,24 @@ function Footer() {
           <div>
             <h4 className="text-xl font-bold mb-4">Về chúng tôi</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-white/90 hover:text-white transition">Giới thiệu</a></li>
-              <li><a href="#" className="text-white/90 hover:text-white transition">Đội ngũ</a></li>
-              <li><a href="#" className="text-white/90 hover:text-white transition">Liên hệ</a></li>
+              <li className="flex items-center space-x-2">
+                <FaUser className="text-sm" />
+                <span className="text-white/90">Giới thiệu: <span className="font-semibold">Locht - Tandn</span></span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <FaUser className="text-sm" />
+                <span className="text-white/90">Đội ngũ: <span className="font-semibold">Locht - Tandn</span></span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <FaEnvelope className="text-sm" />
+                <span className="text-white/90">Liên hệ: </span>
+                <a 
+                  href="mailto:tanlochuynh112@gmail.com" 
+                  className="text-white/90 hover:text-white underline transition"
+                >
+                  tanlochuynh112@gmail.com
+                </a>
+              </li>
               <li><a href="#" className="text-white/90 hover:text-white transition">Chính sách bảo mật</a></li>
             </ul>
           </div>
