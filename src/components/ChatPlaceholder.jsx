@@ -8,6 +8,7 @@ import {
   FaRobot,
 } from 'react-icons/fa'
 import { NewGeminiService } from '../services/geminiService'
+import { useAuth } from '../context/AuthContext'
 import React from 'react'
 
 const EMOTION_GUIDANCE = {
@@ -46,6 +47,7 @@ const EMOTION_GUIDANCE = {
 const BASE_WELCOME = 'Xin chào! Mình là EduMood, người bạn AI luôn sẵn sàng lắng nghe bạn bất cứ lúc nào.'
 
 function ChatPlaceholder({ selectedEmotion }) {
+  const { user } = useAuth()
   const geminiServiceRef = useRef(null)
   if (!geminiServiceRef.current) {
     geminiServiceRef.current = new NewGeminiService()
@@ -60,6 +62,61 @@ function ChatPlaceholder({ selectedEmotion }) {
   const messagesContainerRef = useRef(null)
   const chatBoxRef = useRef(null)
   const hasAutoScrolledRef = useRef(false)
+  const previousEmotionRef = useRef(null)
+
+  // Helper function to get storage key for chat
+  const getChatStorageKey = () => {
+    if (!user || !selectedEmotion) return null
+    return `edumood_chat_${user.id}_${selectedEmotion}`
+  }
+
+  // Load chat history from localStorage when user is logged in
+  const loadChatHistory = () => {
+    if (!user || !selectedEmotion) return false
+
+    const storageKey = getChatStorageKey()
+    if (!storageKey) return false
+
+    try {
+      const savedChat = localStorage.getItem(storageKey)
+      if (savedChat) {
+        const parsedMessages = JSON.parse(savedChat)
+        if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+          setMessages(parsedMessages)
+          return true
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error)
+    }
+    return false
+  }
+
+  // Save chat history to localStorage when user is logged in
+  const saveChatHistory = (messagesToSave) => {
+    if (!user || !selectedEmotion) return
+
+    const storageKey = getChatStorageKey()
+    if (!storageKey) return
+
+    try {
+      // Don't save welcome messages only
+      const meaningfulMessages = messagesToSave.filter(
+        (msg) => msg.id !== 'welcome' && !msg.id.startsWith('intro-')
+      )
+      
+      if (meaningfulMessages.length > 0) {
+        // Include intro message if exists
+        const introMessage = messagesToSave.find((msg) => msg.id.startsWith('intro-'))
+        const messagesWithIntro = introMessage 
+          ? [introMessage, ...meaningfulMessages]
+          : meaningfulMessages
+        localStorage.setItem(storageKey, JSON.stringify(messagesWithIntro))
+      }
+    } catch (error) {
+      console.error('Error saving chat history:', error)
+    }
+  }
 
   const emotionIntro = useMemo(() => {
     if (!selectedEmotion) return null
@@ -70,24 +127,72 @@ function ChatPlaceholder({ selectedEmotion }) {
     return `\n\nMình cảm nhận được bạn đang ${config.label}. ${config.intro}`
   }, [selectedEmotion])
 
+  // Load chat history when user logs in or when emotion changes
   useEffect(() => {
     if (!selectedEmotion) {
+      // Save current chat before resetting if user is logged in
+      if (user && previousEmotionRef.current) {
+        const previousStorageKey = `edumood_chat_${user.id}_${previousEmotionRef.current}`
+        try {
+          const currentMessages = messages.filter(
+            (msg) => msg.id !== 'welcome' && !msg.id.startsWith('intro-')
+          )
+          if (currentMessages.length > 0) {
+            localStorage.setItem(previousStorageKey, JSON.stringify(messages))
+          }
+        } catch (error) {
+          console.error('Error saving chat before emotion change:', error)
+        }
+      }
+
       setMessages([{ id: 'welcome', role: 'model', text: BASE_WELCOME }])
       setDraft('')
       setError(null)
+      previousEmotionRef.current = null
       return
     }
 
-    setMessages([
-      {
-        id: `intro-${selectedEmotion}`,
-        role: 'model',
-        text: `${BASE_WELCOME} ${emotionIntro}`,
-      },
-    ])
+    // If emotion changed and user is logged in, try to load saved history
+    const hasHistory = user && previousEmotionRef.current !== selectedEmotion ? loadChatHistory() : false
+
+    // If no saved history or user not logged in, set intro message
+    if (!hasHistory && (!user || !localStorage.getItem(getChatStorageKey()))) {
+      setMessages([
+        {
+          id: `intro-${selectedEmotion}`,
+          role: 'model',
+          text: `${BASE_WELCOME} ${emotionIntro}`,
+        },
+      ])
+    }
+
     setDraft('')
     setError(null)
-  }, [emotionIntro, selectedEmotion])
+    previousEmotionRef.current = selectedEmotion
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emotionIntro, selectedEmotion, user])
+
+  // Load chat history when user logs in and emotion is already selected
+  useEffect(() => {
+    if (user && selectedEmotion) {
+      // Check if this emotion was already initialized
+      const isCurrentEmotion = previousEmotionRef.current === selectedEmotion
+      const hasHistory = loadChatHistory()
+      
+      // If no history found and emotion was already set, show intro message
+      // (Don't override if emotion just changed - that's handled in the other useEffect)
+      if (!hasHistory && isCurrentEmotion && messages.length === 1 && messages[0].id === 'welcome') {
+        setMessages([
+          {
+            id: `intro-${selectedEmotion}`,
+            role: 'model',
+            text: `${BASE_WELCOME} ${emotionIntro}`,
+          },
+        ])
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   useEffect(() => {
     const behavior = hasAutoScrolledRef.current ? 'smooth' : 'auto'
@@ -107,6 +212,13 @@ function ChatPlaceholder({ selectedEmotion }) {
       requestAnimationFrame(() => chatBox.scrollIntoView({ behavior, block: 'end' }))
     }
   }, [messages])
+
+  // Save chat history whenever messages change (only if user is logged in)
+  useEffect(() => {
+    if (user && selectedEmotion && messages.length > 0) {
+      saveChatHistory(messages)
+    }
+  }, [messages, user, selectedEmotion])
 
   const handleSend = async (event) => {
     event.preventDefault()
