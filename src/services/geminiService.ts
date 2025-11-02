@@ -43,6 +43,44 @@ export class NewGeminiService {
     }
   }
 
+  async *chatStream(
+    history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>,
+    message: string,
+  ): AsyncGenerator<string, void, unknown> {
+    try {
+      const contents = [
+        ...history.map((item) => ({ ...item })),
+        { role: 'user', parts: [{ text: message }] },
+      ]
+
+      const stream = await this.model.models.generateContentStream({
+        model: this.model_name,
+        contents,
+        config: {
+          systemInstruction: buildGeminiPrompt(),
+        }
+      })
+
+      let hasContent = false
+
+      for await (const chunk of stream) {
+        const text = this.extractText(chunk)
+        if (text) {
+          hasContent = true
+          yield text
+        }
+      }
+
+      if (!hasContent) {
+        throw new Error('Gemini stream returned no content')
+      }
+    } catch (error) {
+      const parsedError = error instanceof Error ? error : new Error(String(error))
+      console.error('❌ Gemini stream error:', parsedError)
+      throw parsedError
+    }
+  }
+
   private extractText(response: any): string {
     if (!response) return ''
 
