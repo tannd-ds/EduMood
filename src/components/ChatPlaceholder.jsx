@@ -10,6 +10,7 @@ import {
 import { NewGeminiService } from '../services/geminiService'
 import { useAuth } from '../context/AuthContext'
 import React from 'react'
+import MarkdownMessage from './MarkdownMessage'
 
 const EMOTION_GUIDANCE = {
   angry: {
@@ -387,7 +388,7 @@ function ChatPlaceholder({ selectedEmotion }) {
                   }`}
                 >
                   {message.role === 'model' && (
-                    <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mr-3">
+                    <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <FaRobot className={message.isStreaming ? 'animate-pulse' : ''} />
                     </div>
                   )}
@@ -398,13 +399,18 @@ function ChatPlaceholder({ selectedEmotion }) {
                         : 'bg-gray-50 text-gray-700'
                     }`}
                   >
-                    {/* There will be \n\n in the text, turn it into <br /> */}
-                    {message.text.split('\n').map((part, index) => (
-                      <React.Fragment key={index}>
-                        {part}
-                        {index < message.text.split('\n').length - 1 && <br />}
-                      </React.Fragment>
-                    ))}
+                    {message.role === 'user' ? (
+                      // User messages: plain text with line breaks
+                      message.text.split('\n').map((part, index) => (
+                        <React.Fragment key={index}>
+                          {part}
+                          {index < message.text.split('\n').length - 1 && <br />}
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      // Model messages: render with markdown
+                      <MarkdownMessage content={message.text} />
+                    )}
                     {message.isStreaming && (
                       <span className="inline-block ml-1 w-2 h-4 bg-primary-500 animate-pulse" />
                     )}
