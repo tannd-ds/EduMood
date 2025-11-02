@@ -261,31 +261,71 @@ function ChatPlaceholder({ selectedEmotion }) {
     setIsLoading(true)
     setError(null)
 
-    try {
-      const responseText = await geminiService.chat(historyPayload, trimmed)
-      const finalText = responseText?.trim()
-        ? responseText.trim()
-        : 'Xin lỗi nhé, mình đang hơi bối rối. Bạn có thể chia sẻ lại cho mình được không?'
+    // Create a placeholder message for streaming
+    const streamingMessageId = `model-${Date.now()}`
+    const streamingMessage = {
+      id: streamingMessageId,
+      role: 'model',
+      text: '',
+      isStreaming: true,
+    }
+    setMessages((prev) => [...prev, streamingMessage])
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `model-${Date.now()}`,
-          role: 'model',
-          text: finalText,
-        },
-      ])
+    try {
+      const stream = geminiService.chatStream(historyPayload, trimmed)
+      let fullText = ''
+
+      for await (const chunk of stream) {
+        fullText += chunk
+        // Update the streaming message with accumulated text
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === streamingMessageId
+              ? { ...msg, text: fullText }
+              : msg
+          )
+        )
+      }
+
+      // Mark streaming as complete
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamingMessageId
+            ? { ...msg, isStreaming: false }
+            : msg
+        )
+      )
+
+      // If no content was received, show fallback
+      if (!fullText.trim()) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === streamingMessageId
+              ? {
+                  ...msg,
+                  text: 'Xin lỗi nhé, mình đang hơi bối rối. Bạn có thể chia sẻ lại cho mình được không?',
+                  isStreaming: false,
+                }
+              : msg
+          )
+        )
+      }
     } catch (err) {
       console.error('Gemini chat error:', err)
       setError('Ôi! Mình gặp chút trục trặc kết nối. Bạn thử lại sau vài giây nhé.')
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `model-error-${Date.now()}`,
-          role: 'model',
-          text: 'Xin lỗi bạn nhé, hiện tại mình chưa thể phản hồi được. Chúng ta thử lại sau chút xíu nhé?',
-        },
-      ])
+      
+      // Update the streaming message with error text
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamingMessageId
+            ? {
+                ...msg,
+                text: 'Xin lỗi bạn nhé, hiện tại mình chưa thể phản hồi được. Chúng ta thử lại sau chút xíu nhé?',
+                isStreaming: false,
+              }
+            : msg
+        )
+      )
     } finally {
       setIsLoading(false)
     }
@@ -367,7 +407,7 @@ function ChatPlaceholder({ selectedEmotion }) {
                 >
                   {message.role === 'model' && (
                     <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mr-3">
-                      <FaRobot />
+                      <FaRobot className={message.isStreaming ? 'animate-pulse' : ''} />
                     </div>
                   )}
                   <div
@@ -384,9 +424,12 @@ function ChatPlaceholder({ selectedEmotion }) {
                         {index < message.text.split('\n').length - 1 && <br />}
                       </React.Fragment>
                     ))}
+                    {message.isStreaming && (
+                      <span className="inline-block ml-1 w-2 h-4 bg-primary-500 animate-pulse" />
+                    )}
                   </div>
                 </div>
-                  ))}
+              ))}
               </div>
 
             <form ref={chatBoxRef} onSubmit={handleSend} className="mt-6 space-y-3">
