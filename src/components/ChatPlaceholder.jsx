@@ -6,6 +6,8 @@ import {
   FaExclamationTriangle,
   FaPaperPlane,
   FaRobot,
+  FaExpand,
+  FaCompress,
 } from 'react-icons/fa'
 import { NewGeminiService } from '../services/geminiService'
 import { useAuth } from '../context/AuthContext'
@@ -60,6 +62,7 @@ function ChatPlaceholder({ selectedEmotion }) {
   const [draft, setDraft] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [isMaximized, setIsMaximized] = useState(false)
   const messagesContainerRef = useRef(null)
   const chatBoxRef = useRef(null)
   const hasAutoScrolledRef = useRef(false)
@@ -333,22 +336,36 @@ function ChatPlaceholder({ selectedEmotion }) {
   const canSend = isReadyToChat && draft.trim().length > 0 && !isLoading
 
   return (
-    <section className="container mx-auto px-4 py-12">
+    <section className={`${isMaximized ? 'fixed inset-0 z-50 bg-white' : 'container mx-auto px-4 py-12'}`}>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="max-w-4xl mx-auto"
+        className={isMaximized ? 'h-full overflow-y-auto' : 'max-w-4xl mx-auto'}
       >
-        <div className="glass-effect rounded-3xl p-8 shadow-2xl">
-          <div className="flex items-center justify-center mb-6">
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="text-6xl"
+        <div className={`glass-effect ${isMaximized ? 'rounded-none h-full p-4 md:p-8' : 'rounded-3xl p-8'} shadow-2xl`}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-center flex-1">
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-6xl"
+              >
+                💬
+              </motion.div>
+            </div>
+            <button
+              onClick={() => setIsMaximized(!isMaximized)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label={isMaximized ? 'Thu nhỏ' : 'Phóng to'}
+              title={isMaximized ? 'Thu nhỏ' : 'Phóng to'}
             >
-              💬
-            </motion.div>
+              {isMaximized ? (
+                <FaCompress className="text-2xl text-gray-700" />
+              ) : (
+                <FaExpand className="text-2xl text-gray-700" />
+              )}
+            </button>
           </div>
 
           <div className="text-center mb-8">
@@ -378,7 +395,9 @@ function ChatPlaceholder({ selectedEmotion }) {
 
             <div
               ref={messagesContainerRef}
-              className="bg-white rounded-2xl border border-gray-100 shadow-inner p-4 h-80 overflow-y-auto space-y-4"
+              className={`bg-white rounded-2xl border border-gray-100 shadow-inner p-4 overflow-y-auto space-y-4 ${
+                isMaximized ? 'h-[calc(100vh-450px)] min-h-[500px]' : 'h-80'
+              }`}
             >
               {messages.map((message) => (
                 <div
@@ -468,13 +487,15 @@ function ChatPlaceholder({ selectedEmotion }) {
           </div>
         </div>
 
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-center mt-8"
-        >
-          <FaArrowDown className="text-4xl text-gray-400 mx-auto" />
-        </motion.div>
+        {!isMaximized && (
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-center mt-8"
+          >
+            <FaArrowDown className="text-4xl text-gray-400 mx-auto" />
+          </motion.div>
+        )}
       </motion.div>
     </section>
   )
